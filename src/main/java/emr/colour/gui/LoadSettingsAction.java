@@ -4,17 +4,21 @@ import javax.swing.AbstractAction;
 import java.awt.event.ActionEvent;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
+import emr.stuff.Talker;
+import emr.stuff.Message;
+import emr.colour.IGMessage;
+import emr.colour.IGMessageType;
 
 class LoadSettingsAction extends AbstractAction
 {
-	private ImageGeneratorGUI igg;
 	private JFrame frame;
+	private Talker talker;
 	
-	public LoadSettingsAction( ImageGeneratorGUI igg , JFrame frame )
+	public LoadSettingsAction( JFrame frame , Talker talker )
 	{
-		super( "load settings file..." );
-		this.igg = igg;
+		super( "load settings file..." );		
 		this.frame = frame;
+		this.talker = talker;
 	}
 	
 	@Override
@@ -26,7 +30,8 @@ class LoadSettingsAction extends AbstractAction
 		if( jfc.showOpenDialog( frame ) == JFileChooser.APPROVE_OPTION )
 		{
 			String name = jfc.getSelectedFile().getName();
-			new Thread( () -> igg.loadSettings( name ) ).start();
+			Message message = new IGMessage( IGMessageType.LOAD_SETTINGS , name );
+			new Thread( () -> talker.sendMessage( message ) ).start();
 		}
 	}
 }

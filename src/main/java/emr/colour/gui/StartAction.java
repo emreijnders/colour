@@ -2,20 +2,24 @@ package emr.colour.gui;
 
 import javax.swing.AbstractAction;
 import java.awt.event.ActionEvent;
+import emr.stuff.Talker;
+import emr.stuff.Message;
+import emr.colour.IGMessage;
+import emr.colour.IGMessageType;
 
 class StartAction extends AbstractAction
 {
-	private ImageGeneratorGUI igg;
+	private Talker talker;
 	
-	public StartAction( ImageGeneratorGUI igg )
+	public StartAction( Talker talker )
 	{
 		super( "Generate Image" );
-		this.igg = igg;
+		this.talker = talker;
 	}
 	
 	@Override
 	public void actionPerformed( ActionEvent e )
 	{
-		new Thread( () -> igg.generateImage() ).start();
+		new Thread( () -> talker.sendMessage( new IGMessage( IGMessageType.GENERATE , "" ) ) ).start();
 	}
 }

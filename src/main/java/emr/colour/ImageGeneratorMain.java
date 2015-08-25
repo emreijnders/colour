@@ -7,7 +7,6 @@ public class ImageGeneratorMain
 {
 	public static void main( String[] args )
 	{
-		ImageGeneratorGUI ig = new ImageGeneratorGUI();
-		ig.startGUI();		
+		ImageGeneratorController igc = new ImageGeneratorController();		
 	}
 }

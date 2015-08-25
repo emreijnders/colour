@@ -4,17 +4,21 @@ import javax.swing.AbstractAction;
 import java.awt.event.ActionEvent;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
+import emr.stuff.Talker;
+import emr.stuff.Message;
+import emr.colour.IGMessage;
+import emr.colour.IGMessageType;
 
 class LoadCCLAction extends AbstractAction
 {
-	private ImageGeneratorGUI igg;
 	private JFrame frame;
+	private Talker talker;
 	
-	public LoadCCLAction( ImageGeneratorGUI igg , JFrame frame )
+	public LoadCCLAction( JFrame frame , Talker talker )
 	{
 		super( "load colourlist file..." );
-		this.igg = igg;
 		this.frame = frame;
+		this.talker = talker;
 	}
 	
 	@Override
@@ -26,7 +30,8 @@ class LoadCCLAction extends AbstractAction
 		if( jfc.showOpenDialog( frame ) == JFileChooser.APPROVE_OPTION )
 		{
 			String name = jfc.getSelectedFile().getName();
-			new Thread( () -> igg.loadCCL( name ) ).start();
+			Message message = new IGMessage( IGMessageType.LOAD_CCL , name );
+			new Thread( () -> talker.sendMessage( message ) ).start();
 		}
 	}
 }
