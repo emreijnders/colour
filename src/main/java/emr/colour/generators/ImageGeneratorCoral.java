@@ -302,19 +302,36 @@ class Mover implements Bounded
 		location = next;
 	}
 	
+	@Override
 	public Location getTopLeft()
 	{
 		return location;
 	}
 	
-	public int getWidth()
+	@Override
+	public double getWidth()
 	{
 		return 1;
 	}
 	
-	public int getHeight()
+	@Override
+	public double getHeight()
 	{
 		return 1;
+	}
+	
+	@Override
+	public boolean intersects( Bounded other )
+	{
+		boolean answer = false;
+		if( location.X >= other.getTopLeft().X 
+			&& location.X < other.getTopLeft().X + other.getWidth() 
+			&& location.Y >= other.getTopLeft().Y
+			&& location.Y < other.getTopLeft().Y + other.getHeight() )
+		{
+			answer = true;
+		}
+		return answer;
 	}
 	
 	public void switchX()
