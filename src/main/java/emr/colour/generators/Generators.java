@@ -2,7 +2,7 @@ package emr.colour.generators;
 
 public enum Generators
 {
-	LINES , CIRCLES , CLOUD , CORAL , TREE;
+	LINES , CIRCLES , CLOUD , CORAL , TREE , BLOCKS;
 	
 	public static ImageGenerator getGenerator( Generators type )
 	{
@@ -23,6 +23,9 @@ public enum Generators
 				break;
 			case TREE:
 				generator = new ImageGeneratorTree();
+				break;
+			case BLOCKS:
+				generator = new ImageGeneratorBlocks();
 				break;
 			default:
 				generator = null;

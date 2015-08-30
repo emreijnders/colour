@@ -17,25 +17,19 @@ false
 1234567
 
 @generator
-CORAL
+BLOCKS
 
 @image_width
-2048
+800
 
 @image_height
-1024
+600
 
-@max_speed
-5
+@number_of_blocks
+1000
 
-@starting_line
-true
+@max_size
+50
 
-@amount_start
-100
-
-@amount_total
-100000
-
-@max_iterations
-20000
+@size_factor
+0.9
