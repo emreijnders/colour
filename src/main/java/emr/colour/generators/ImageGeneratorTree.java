@@ -32,6 +32,7 @@ public class ImageGeneratorTree implements ImageGenerator
 		drawBranches( image.createGraphics() , current , colours );
 		int left_angle = angle;
 		int right_angle = angle;
+		Graphics2D g2 = image.createGraphics();
 		while( depth > 1 )
 		{
 			//split into more branches			
@@ -45,10 +46,10 @@ public class ImageGeneratorTree implements ImageGenerator
 				next.add( split.get(1) );
 			}
 			//draw them
-			drawBranches( image.createGraphics() , next , colours );
+			drawBranches( g2 , next , colours );
 			current = next;
 		}
-		
+		g2.dispose();
 		return image;
 	}
 	

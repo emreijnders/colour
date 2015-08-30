@@ -8,7 +8,7 @@ true
 true
 
 @sorting_comparator
-HSBSCORE
+HUE
 
 @ascending
 false
@@ -26,10 +26,7 @@ BLOCKS
 600
 
 @number_of_blocks
-1000
+10000
 
 @max_size
-50
-
-@size_factor
-0.9
+200

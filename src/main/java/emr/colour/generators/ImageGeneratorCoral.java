@@ -197,7 +197,7 @@ public class ImageGeneratorCoral implements ImageGenerator
 		}
 		//check we don't end up on top of another mover
 		Mover fake = Mover.createFakeMover( end );
-		List<Mover> list = nextmovers.retrieve( new ArrayList<Mover>() , fake );
+		List<Mover> list = nextmovers.retrieve( fake );
 		int index = list.indexOf( fake );
 		if( index > -1 )
 		{
@@ -236,7 +236,7 @@ public class ImageGeneratorCoral implements ImageGenerator
 			next = new Location( rand.nextInt( image.getWidth() ) , rand.nextInt( image.getHeight() ) );
 			fake = Mover.createFakeMover( next );
 		}
-		while( movers.retrieve( new ArrayList<Mover>() , fake ).contains( fake ) );
+		while( movers.retrieve( fake ).contains( fake ) );
 		int xs;
 		int ys;
 		if( !starting_line )
