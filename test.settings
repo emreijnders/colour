@@ -1,5 +1,5 @@
 @save
-false
+true
 
 @shuffle
 true
@@ -8,22 +8,22 @@ true
 true
 
 @sorting_comparator
-HUE
+SATURATION
 
 @ascending
 false
 
 @seed
-1234567
+123456
 
 @generator
 BLOCKS
 
 @image_width
-800
+2048
 
 @image_height
-600
+1024
 
 @number_of_blocks
 10000
