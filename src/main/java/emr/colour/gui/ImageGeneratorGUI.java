@@ -41,8 +41,7 @@ public class ImageGeneratorGUI
 				frame.pack();
 				frame.setVisible( true );
 			}
-		}
-		);
+		});
 	}
 	
 	private JPanel constructPanel()
