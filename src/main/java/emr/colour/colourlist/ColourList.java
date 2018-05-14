@@ -53,6 +53,17 @@ public class ColourList
 		return list;
 	}
 	
+	@Override
+	public String toString()
+	{
+		StringBuilder sb = new StringBuilder();
+		for( ColourRange range : rangelist )
+		{
+			sb.append( range.toString() + "#" );
+		}
+		return sb.toString();
+	}
+	
 	private boolean isInRange( Colour colour )
 	{
 		boolean answer = true;

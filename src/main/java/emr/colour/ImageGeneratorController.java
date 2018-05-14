@@ -5,13 +5,16 @@ import emr.stuff.Message;
 import emr.stuff.Talker;
 import emr.colour.ImageSettings;
 import emr.colour.ImageSaver;
+import emr.colour.IGMessageType;
 import emr.colour.gui.ImageGeneratorGUI;
 import emr.colour.colourlist.CCLFileParser;
 import emr.colour.colourlist.CompoundColourList;
 import emr.colour.colourlist.Colour;
 import emr.colour.comparators.CustomComparator;
-import emr.colour.generators.Generators;
+import emr.colour.generators.GeneratorFactory;
+import emr.colour.generators.GeneratorTypes;
 import emr.colour.generators.ImageGenerator;
+import emr.colour.generators.ColourListFactory;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Random;
@@ -28,12 +31,13 @@ public class ImageGeneratorController implements Listener
 	private String settingsfilename;
 	private String cclfilename;
 	private ImageGeneratorGUI gui;
+	private Talker talker;
 	
 	public ImageGeneratorController()
 	{
 		settingsfilename = "";
 		cclfilename = "";
-		Talker talker = new IGTalker();
+		talker = new IGTalker();
 		talker.addListener( this );
 		settings = new ImageSettings();
 		CompoundColourList ccl = new CompoundColourList(); //empty colourlist
@@ -63,50 +67,41 @@ public class ImageGeneratorController implements Listener
 	
 	private void generateImage()
 	{
-		int width = settings.<Long>getSetting( "image_width" ).intValue();
-		int height = settings.<Long>getSetting( "image_height" ).intValue();
-		BufferedImage image = new BufferedImage( width , height , BufferedImage.TYPE_INT_RGB );
+		//get type
+		GeneratorTypes type = GeneratorTypes.valueOf( settings.getSetting( "generator" ) );
 		
+		//get colours
+		List<Colour> colours = ColourListFactory.generateColourList( settings, ccl );
+		
+		//make generator
+		GeneratorFactory generatorFactory = new GeneratorFactory( type , settings );
+		
+		generatorFactory.addColourList( colours );
+		
+		ImageGenerator generator = generatorFactory.getGenerator();
+		
+		//get the image for reference
+		BufferedImage image = generatorFactory.getImage();
+		
+		//show gui if needed
 		boolean show_gui = settings.getSetting( "show_gui" );
 		if( show_gui )
 		{
 			gui.showImage( image );
 		}
-		String generatorname = settings.getSetting( "generator" );
-		ImageGenerator generator  = Generators.getGenerator( Generators.valueOf( generatorname ) );
-		List<Colour> colours = getColourList();
-		generator.generateImage( image , colours , settings );
 		
+		System.out.println( "starting generator" );
+		generator.generateImage();
+		
+		System.out.println( "done generating" );
+		
+		//save image if needed
 		boolean save = settings.getSetting( "save" );
 		if( save )
 		{
 			saveImage( image );
+			System.out.println( "image saved" );
 		}
-	}
-	
-	private List<Colour> getColourList()
-	{
-		//generate colourlist from ccl
-		//--generate list
-		List<Colour> colourlist = ccl.getCompoundColourList();		
-		//--shuffle list if required
-		boolean shuffle = settings.getSetting( "shuffle" );		
-		if( shuffle )
-		{
-			long seed = settings.getSetting( "seed" );
-			Collections.shuffle( colourlist , new Random( seed ) );
-		}
-		//--sort list if required
-		boolean sort = settings.getSetting( "sort" );
-		if( sort )
-		{
-			//---create comparator
-			boolean ascending = settings.getSetting( "ascending" );
-			String terms = settings.getSetting( "sorting_comparator" );
-			Comparator<Colour> comparator = new CustomComparator( ascending , terms );
-			colourlist = new ArrayList<Colour>( colourlist.parallelStream().sorted( comparator ).collect( Collectors.toList() ) );
-		}
-		return colourlist;
 	}
 	
 	private void saveImage( BufferedImage image )
@@ -116,13 +111,16 @@ public class ImageGeneratorController implements Listener
 	
 	private void loadSettings( String filename )
 	{		
+		settingsfilename = filename;
 		settings.setSettings( filename );
+		new Thread( () -> talker.sendMessage( new IGMessage( IGMessageType.NEW_SETTINGS , settings.toString() ) ) ).start();
 	}
 	
 	private void loadCCL( String filename )
 	{
 		cclfilename = filename;
 		ccl = new CCLFileParser( filename ).parseFile();
+		new Thread( () -> talker.sendMessage( new IGMessage( IGMessageType.NEW_CCL , ccl.toString() ) ) ).start();
 	}
 	
 	private void reload()

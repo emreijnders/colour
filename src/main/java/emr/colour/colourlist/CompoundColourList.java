@@ -47,6 +47,25 @@ public class CompoundColourList
 		return lists;
 	}
 	
+	@Override
+	public String toString()
+	{
+		StringBuilder sb = new StringBuilder();
+		sb.append( "bits: " + bits + "#" );
+		sb.append( "order: " );
+		for( String item : order )
+		{
+			sb.append( item + "," );
+		}
+		sb.deleteCharAt( sb.length() - 1 );
+		sb.append( "#" );
+		for( Map.Entry< String , ColourList > entry : lists.entrySet() )
+		{
+			sb.append( entry.getKey() + "#" + entry.getValue().toString() );
+		}
+		return sb.toString();
+	}
+	
 	public List<Colour> getCompoundColourList()
 	{
 		ArrayList<Colour> list = new ArrayList<>();		

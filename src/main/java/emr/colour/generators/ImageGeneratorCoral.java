@@ -1,6 +1,7 @@
 package emr.colour.generators;
 
 import java.awt.image.BufferedImage;
+import java.awt.geom.Rectangle2D;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Set;
@@ -9,7 +10,7 @@ import java.util.Iterator;
 import java.util.Random;
 import emr.colour.colourlist.Colour;
 import emr.colour.ImageSettings;
-import emr.stuff.Location;
+import emr.stuff.LocationDouble;
 import emr.stuff.Direction;
 import emr.stuff.QuadTree;
 import emr.stuff.Bounded;
@@ -18,33 +19,40 @@ import emr.stuff.Bounds;
 public class ImageGeneratorCoral implements ImageGenerator
 {
 	private QuadTree<Mover> movers;
-	private Set<Location> stuck;
+	private Set<LocationDouble> stuck;
 	private Random rand;
-	private BufferedImage image;
 	private int max_speed;
-	private List<Colour> colours;
 	private int iteration;
 	private boolean starting_line;
+	private BufferedImage image;
+	private ImageSettings settings;
+	private List<Colour> colours;
 	
-	@Override
-	public BufferedImage generateImage( BufferedImage image , List<Colour> colours , ImageSettings settings )
-	{		
-		//init
+	public ImageGeneratorCoral( BufferedImage image , List<Colour> colours , ImageSettings settings )
+	{
+		this.image = image;
+		this.settings = settings;
+		this.colours = colours;
 		long seed = settings.getSetting( "seed" );
 		rand = new Random( seed );
-		this.image = image;
-		this.colours = colours;
-		movers = new QuadTree<>( new Bounds( new Location( 0 , 0 ) , image.getWidth() , image.getHeight() ) );
+		movers = new QuadTree<>( new Bounds( new LocationDouble( 0 , 0 ) , image.getWidth() , image.getHeight() ) );
 		stuck = new HashSet<>();
 		max_speed = settings.<Long>getSetting( "max_speed" ).intValue();
-		starting_line = settings.getSetting( "starting_line" );
+		starting_line = settings.getSetting( "starting_line" );		
+	}
+	
+	
+	@Override
+	public BufferedImage generateImage()
+	{		
+		//init
 		if( starting_line )
 		{
 			for( int x = 0; x < image.getWidth(); x++ )
 			{
-				Location loc = new Location( x , image.getHeight() - 1 );
+				LocationDouble loc = new LocationDouble( x , image.getHeight() - 1 );
 				stuck.add( loc );
-				image.setRGB( loc.X , loc.Y , colours.get( 0 ).getIntValue() );
+				image.setRGB( (int) loc.getX() , (int) loc.getY() , colours.get( 0 ).getIntValue() );
 			}
 		}
 		else
@@ -53,14 +61,14 @@ public class ImageGeneratorCoral implements ImageGenerator
 			int amount_start = settings.<Long>getSetting( "amount_start" ).intValue();
 			for( int x = 0; x < amount_start && !colours.isEmpty() ; x++ )
 			{
-				Location start;
+				LocationDouble start;
 				do
 				{
-					start = new Location( rand.nextInt( image.getWidth() ) , rand.nextInt( image.getHeight() ) );
+					start = new LocationDouble( rand.nextInt( image.getWidth() ) , rand.nextInt( image.getHeight() ) );
 				}
 				while( stuck.contains( start ) );
 				stuck.add( start );
-				image.setRGB( start.X , start.Y , colours.get( 0 ).getIntValue() );
+				image.setRGB( (int) start.getX() , (int) start.getY() , colours.get( 0 ).getIntValue() );
 			}		
 		}
 		
@@ -75,7 +83,7 @@ public class ImageGeneratorCoral implements ImageGenerator
 		iteration = 0;
 		while( iteration < max_iterations )
 		{
-			QuadTree<Mover> nextmovers = new QuadTree<>( new Bounds( new Location( 0 , 0 ) , image.getWidth() , image.getHeight() ) );
+			QuadTree<Mover> nextmovers = new QuadTree<>( new Bounds( new LocationDouble( 0 , 0 ) , image.getWidth() , image.getHeight() ) );
 			for( Mover mover : movers.getAllLeaves( new ArrayList<>() ) )
 			{
 				moveMover( mover , mover.getNextLocation() , nextmovers );
@@ -88,28 +96,28 @@ public class ImageGeneratorCoral implements ImageGenerator
 		return image;
 	}
 	
-	private Location resolveCollision( Mover mover , Location next )
+	private LocationDouble resolveCollision( Mover mover , LocationDouble next )
 	{
-		Location answer = next;
-		if( answer.X < 0 )
+		LocationDouble answer = next;
+		if( answer.getX() < 0 )
 		{
-			answer = new Location( Math.abs( answer.X ) , answer.Y );
+			answer = new LocationDouble( Math.abs( answer.getX() ) , answer.getY() );
 			mover.switchX();
 		}
-		else if( answer.X >= image.getWidth() )
+		else if( answer.getX() >= image.getWidth() )
 		{
-			answer = new Location( image.getWidth() - ( ( answer.X - image.getWidth() ) + 1 ) , answer.Y );
+			answer = new LocationDouble( image.getWidth() - ( ( answer.getX() - image.getWidth() ) + 1 ) , answer.getY() );
 			mover.switchX();
 		}
 		
-		if( answer.Y < 0 )
+		if( answer.getY() < 0 )
 		{
-			answer = new Location( answer.X , Math.abs( answer.Y ) );
+			answer = new LocationDouble( answer.getX() , Math.abs( answer.getY() ) );
 			mover.switchY();
 		}
-		else if( answer.Y >= image.getHeight() )
+		else if( answer.getY() >= image.getHeight() )
 		{
-			answer = new Location( answer.X , image.getHeight() - ( ( answer.Y - image.getHeight() ) + 1 ) );
+			answer = new LocationDouble( answer.getX() , image.getHeight() - ( ( answer.getY() - image.getHeight() ) + 1 ) );
 			mover.switchY();
 		}
 		
@@ -127,18 +135,35 @@ public class ImageGeneratorCoral implements ImageGenerator
 		other.yspeed = ytemp;		
 	}
 	
-	private void moveMover( Mover mover , Location end , QuadTree<Mover> nextmovers )
+	private List<LocationDouble> getNeighbours( LocationDouble center , int distance )
 	{
-		Location start = mover.location;
-		int xdif = Math.abs(start.X - end.X);
-		int ydif = Math.abs(start.Y - end.Y);
-		Direction dir = start.getRelativeDirection(end);
-		Location previous = start;
-		Location now = start;
-		double ratio = 0.0;
-		if(xdif != 0 && ydif != 0)
+		List<LocationDouble> list = new ArrayList<>();
+		if( distance > 0 )
 		{
-			ratio = (double)Math.min(xdif,ydif) / (double)Math.max(xdif,ydif);
+			for( int y = (int) center.getY() - distance; y <= center.getY() + distance; y++ )
+			{
+				for( int x = (int) center.getX() - distance; x <= center.getX() + distance; x++ )
+				{
+					if( x == center.getX() && y == center.getY() ) continue;
+					list.add( new LocationDouble( x , y ) );
+				}
+			}
+		}
+		return list;
+	}
+	
+	private void moveMover( Mover mover , LocationDouble end , QuadTree<Mover> nextmovers )
+	{
+		LocationDouble start = mover.location;
+		int xdif = (int) Math.abs( start.getX() - end.getX() );
+		int ydif = (int) Math.abs( start.getY() - end.getY() );
+		Direction dir = start.getRelativeDirection( end );
+		LocationDouble previous = start;
+		LocationDouble now = start;
+		double ratio = 0.0;
+		if( xdif != 0 && ydif != 0 )
+		{
+			ratio = (double) Math.min( xdif , ydif ) / (double) Math.max( xdif , ydif );
 		}
 		double error = 0.0;
 		boolean done = false;
@@ -147,7 +172,7 @@ public class ImageGeneratorCoral implements ImageGenerator
 		{
 			done = false;
 			//check if we're stuck yet
-			for( Location possible : now.getNeighbours() )
+			for( LocationDouble possible : getNeighbours( now , 1 ) )
 			{				
 				if( stuck.contains( possible ) )
 				{
@@ -161,10 +186,8 @@ public class ImageGeneratorCoral implements ImageGenerator
 			if( !done )
 			{
 				//figure out next location
-				int x = 0;
-				int y = 0;
-				x = now.X;
-				y = now.Y;
+				int x = (int) now.getX();
+				int y = (int) now.getY();
 				error += ratio;
 				if( xdif >= ydif )
 				{
@@ -177,14 +200,14 @@ public class ImageGeneratorCoral implements ImageGenerator
 				}
 				else
 				{
-					y += dir.Y;					
+					y += dir.Y;
 					if( error >= 0.5 )
 					{
 						x += dir.X;
 						error -= 1.0;
 					}					
 				}
-				Location next = new Location( x , y );
+				LocationDouble next = new LocationDouble( x , y );
 				//check if the next location is out of bounds
 				if( isOutside( next ) )
 				{
@@ -212,15 +235,15 @@ public class ImageGeneratorCoral implements ImageGenerator
 		}
 	}
 	
-	private boolean isNeighbour( Location t , Location o )
+	private boolean isNeighbour( LocationDouble t , LocationDouble o )
 	{
-		return !t.equals(o) && Math.abs( t.X - o.X ) < 2 && Math.abs( t.Y - o.Y ) < 2;
+		return !t.equals( o ) && Math.abs( t.getX() - o.getX() ) < 2 && Math.abs( t.getY() - o.getY() ) < 2;
 	}
 	
-	private boolean isOutside( Location test )
+	private boolean isOutside( LocationDouble test )
 	{
 		boolean answer = false;
-		if( test.X < 0 || test.X >= image.getWidth() || test.Y < 0 || test.Y >= image.getHeight() )
+		if( test.getX() < 0 || test.getX() >= image.getWidth() || test.getY() < 0 || test.getY() >= image.getHeight() )
 		{
 			answer = true;
 		}
@@ -230,10 +253,10 @@ public class ImageGeneratorCoral implements ImageGenerator
 	private void createNextMover( Colour col )
 	{
 		Mover fake;
-		Location next;
+		LocationDouble next;
 		do
 		{
-			next = new Location( rand.nextInt( image.getWidth() ) , rand.nextInt( image.getHeight() ) );
+			next = new LocationDouble( rand.nextInt( image.getWidth() ) , rand.nextInt( image.getHeight() ) );
 			fake = Mover.createFakeMover( next );
 		}
 		while( movers.retrieve( fake ).contains( fake ) );
@@ -263,47 +286,47 @@ public class ImageGeneratorCoral implements ImageGenerator
 
 class Mover implements Bounded
 {
-	public Location location;
+	public LocationDouble location;
 	public int xspeed, yspeed;
 	private BufferedImage image;
 	
-	public Mover( Location loc , Colour col , int xs , int ys , BufferedImage image )
+	public Mover( LocationDouble loc , Colour col , int xs , int ys , BufferedImage image )
 	{
 		location = loc;		
 		xspeed = xs;
 		yspeed = ys;
 		this.image = image;
-		image.setRGB( location.X , location.Y , col.getIntValue() );
+		image.setRGB( (int) location.getX() , (int) location.getY() , col.getIntValue() );
 	}
 	
-	private Mover( Location loc )
+	private Mover( LocationDouble loc )
 	{
 		location = loc;
 	}
 	
-	public static Mover createFakeMover( Location loc )
+	public static Mover createFakeMover( LocationDouble loc )
 	{
 		return new Mover( loc );
 	}
 	
-	public Location getNextLocation()
+	public LocationDouble getNextLocation()
 	{
 		//get next location
-		return new Location( location.X + xspeed , location.Y + yspeed );
+		return new LocationDouble( location.getX() + xspeed , location.getY() + yspeed );
 	}
 	
-	public void setLocation( Location next , Colour colour )
+	public void setLocation( LocationDouble next , Colour colour )
 	{		
 		//remove from old location
-		image.setRGB( location.X , location.Y , -16777216 );
+		image.setRGB( (int) location.getX() , (int) location.getY() , -16777216 );
 		
 		//add to new location
-		image.setRGB( next.X , next.Y , colour.getIntValue() );
+		image.setRGB( (int) next.getX() , (int) next.getY() , colour.getIntValue() );
 		location = next;
 	}
 	
 	@Override
-	public Location getTopLeft()
+	public LocationDouble getTopLeft()
 	{
 		return location;
 	}
@@ -320,18 +343,26 @@ class Mover implements Bounded
 		return 1;
 	}
 	
+	/*
 	@Override
 	public boolean intersects( Bounded other )
 	{
 		boolean answer = false;
-		if( location.X >= other.getTopLeft().X 
-			&& location.X < other.getTopLeft().X + other.getWidth() 
-			&& location.Y >= other.getTopLeft().Y
-			&& location.Y < other.getTopLeft().Y + other.getHeight() )
+		if( location.getX() >= other.getTopLeft().getX() 
+			&& location.getX() < other.getTopLeft().getX() + other.getWidth() 
+			&& location.getY() >= other.getTopLeft().getY()
+			&& location.getY() < other.getTopLeft().getY() + other.getHeight() )
 		{
 			answer = true;
 		}
 		return answer;
+	}
+	*/
+	
+	@Override
+	public Rectangle2D getBoundingRectangle()
+	{
+		return new Rectangle2D.Double( location.getX() , location.getY() , 1 , 1 );
 	}
 	
 	public void switchX()

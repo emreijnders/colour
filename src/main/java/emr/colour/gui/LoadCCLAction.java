@@ -29,8 +29,8 @@ class LoadCCLAction extends AbstractAction
 		jfc.setFileFilter( new CustomFilter( "ccl" ) );
 		if( jfc.showOpenDialog( frame ) == JFileChooser.APPROVE_OPTION )
 		{
-			String name = jfc.getSelectedFile().getName();
-			Message message = new IGMessage( IGMessageType.LOAD_CCL , name );
+			String path = jfc.getSelectedFile().getPath();
+			Message message = new IGMessage( IGMessageType.LOAD_CCL , path );
 			new Thread( () -> talker.sendMessage( message ) ).start();
 		}
 	}

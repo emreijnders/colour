@@ -11,6 +11,11 @@ public class Colour implements Comparable<Colour>
 		COLOUR = new Color( r , g , b );
 	}
 	
+	public Colour( Color color )
+	{
+		COLOUR = color;
+	}
+	
 	public int getRed()
 	{
 		return COLOUR.getRed();
@@ -28,21 +33,20 @@ public class Colour implements Comparable<Colour>
 	
 	public int getHue()
 	{
-		return Math.round( Color.RGBtoHSB( getRed() , getGreen() , getBlue() , null )[0] * 256 );
+		return Math.round( Color.RGBtoHSB( getRed() , getGreen() , getBlue() , null )[0] );
 		//this looks a bit complicated so here's the breakdown
 		//RGBtoHSB returns a float array
 		//we get the value from the array, it's between 0 (inclusive) and 1 (exclusive)
-		//we multiply the value by 256 to bring it in line with the RGB values
 	}
 	
 	public int getSaturation()
 	{
-		return Math.round( Color.RGBtoHSB( getRed() , getGreen() , getBlue() , null )[1] * 256 );
+		return Math.round( Color.RGBtoHSB( getRed() , getGreen() , getBlue() , null )[1] );
 	}
 	
 	public int getBrightness()
 	{
-		return Math.round( Color.RGBtoHSB( getRed() , getGreen() , getBlue() , null )[2] * 256 );
+		return Math.round( Color.RGBtoHSB( getRed() , getGreen() , getBlue() , null )[2] );
 	}
 	
 	public Integer getIntValue()

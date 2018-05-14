@@ -11,7 +11,7 @@ false
 true
 
 @sorting_comparator
-RED,GREEN,BLUE
+SATURATION
 
 @ascending
 false
@@ -35,16 +35,16 @@ true
 SATURATION
 
 @comparison_distance
-1
+5
 
 @precise
-false
+true
 
 @score_type
-minimum
+average
 
 @decider
-oldest
+random
 
 @tiling
 true

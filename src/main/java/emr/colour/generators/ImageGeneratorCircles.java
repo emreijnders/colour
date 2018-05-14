@@ -7,7 +7,19 @@ import emr.colour.ImageSettings;
 
 public class ImageGeneratorCircles implements ImageGenerator
 {
-	public BufferedImage generateImage( BufferedImage image , List<Colour> colours , ImageSettings settings )
+	private BufferedImage image;
+	private ImageSettings settings;
+	private List<Colour> colours;
+	
+	public ImageGeneratorCircles( BufferedImage image , List<Colour> colours , ImageSettings settings )
+	{
+		this.image = image;
+		this.settings = settings;
+		this.colours = colours;
+	}
+	
+	@Override
+	public BufferedImage generateImage()
 	{
 		return null;
 	}

@@ -1,6 +1,7 @@
 package emr.colour.generators;
 
 import java.awt.image.BufferedImage;
+import java.awt.Color;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -12,81 +13,266 @@ import java.util.Random;
 import emr.stuff.Location;
 import java.util.Comparator;
 import java.awt.Color;
+import java.util.Map.Entry;
+import java.util.Map;
+import emr.colour.comparators.CustomComparator;
 
 public class ImageGeneratorCloud implements ImageGenerator
 {
 	private HashMap<Location, Colour> locationmap;
 	private TreeMap<Colour, List<Location>> scoremap;
+	private Random rand;
+	private Location start;
 	private BufferedImage image;
+	private ImageSettings settings;
+	private List<Colour> colours;
+	private int backgroundcolour;
+	
+	public ImageGeneratorCloud( BufferedImage image , List<Colour> colours , ImageSettings settings )
+	{
+		locationmap = new HashMap<>();
+		boolean score_ascending = settings.getSetting( "score_ascending" );
+		String terms = settings.getSetting( "score_comparator" );
+		Comparator< Colour > comparator = new CustomComparator( score_ascending , terms );
+		scoremap = new TreeMap<>( comparator );
+		long seed = settings.getSetting( "seed" );
+		rand = new Random( seed );
+		this.image = image;
+		this.settings = settings;
+		this.colours = new LinkedList<Colour>( colours );
+		backgroundcolour = Color.decode( settings.getSetting( "background_colour" ) ).getRGB();
+	}
 	
 	@Override
-	public BufferedImage generateImage( BufferedImage image , List<Colour> colours , ImageSettings settings )
+	public BufferedImage generateImage()
 	{
-		//initialization
-		locationmap = new HashMap<>();
-		scoremap = new TreeMap<>();
-		long seed = settings.getSetting( "seed" );
-		Random rand = new Random( seed );
-		this.image = image;
-		
 		//generation
 		int x = rand.nextInt( image.getWidth() );
 		int y = rand.nextInt( image.getHeight() );
-		Location start = new Location( x , y );
+		start = new Location( x , y );
 		addEntry( start );
 		while( !colours.isEmpty() && !locationmap.isEmpty() )
 		{
 			//pop a colour
 			Colour colour = colours.remove(0);
 			//find the best fit from the wavefront
-			Location best = scoremap.entrySet().parallelStream().min( Comparator.comparing( entry -> entry.getKey().getDifference( colour ) ) ).get().getValue().get( 0 );
+			boolean precise = settings.getSetting( "precise" );
+			Location best;
+			if( precise )
+			{
+				best = getBestPrecise( colour );
+			}
+			else
+			{
+				best = getBestRough( colour );
+			}
 			//remove best location from wavefront
 			removeEntry( best );
 			//place the colour
-			image.setRGB( best.X , best.Y , colour.getIntValue() );
+			image.setRGB( best.getX() , best.getY() , colour.getIntValue() );
 			//add the neighbours of the newly placed colour to the wavefront
 			addNeighbours( best );			
 		}
 		return image;
 	}
 	
+	private Location getBestPrecise( Colour colour )
+	{
+		List<Location> bestlist = scoremap.entrySet().parallelStream().min( Comparator.comparing( entry -> entry.getKey().getDifference( colour ) ) ).get().getValue();		
+		return getBestFromList( bestlist );
+	}
+	
+	private Location getBestRough( Colour colour )
+	{
+		List<Location> bestlist = scoremap.get( colour );
+		if( bestlist == null )
+		{
+			Map.Entry< Colour, List< Location > > lower = scoremap.lowerEntry( colour );
+			Map.Entry< Colour, List< Location > > higher = scoremap.higherEntry( colour );
+			if( lower == null && higher == null )
+			{
+				System.out.println( "something went wrong because scoremap is empty" );
+			}
+			else
+			{
+				if( lower == null )
+				{
+					bestlist = higher.getValue();
+				}
+				else if( higher == null )
+				{
+					bestlist = lower.getValue();
+				}
+				else
+				{
+					int lowerdifference = lower.getKey().getDifference( colour );
+					int higherdifference = higher.getKey().getDifference( colour );
+					if( lowerdifference >= higherdifference )
+					{
+						bestlist = higher.getValue();
+					}
+					else
+					{
+						bestlist = lower.getValue();
+					}
+				}
+			}
+		}
+		return getBestFromList( bestlist );
+	}
+	
+	private Location getBestFromList( List< Location > bestlist )
+	{
+		Location best = null;
+		if( bestlist == null || bestlist.isEmpty() )
+		{
+			System.out.println( "something went wrong, bestlist is null or empty" );
+		}
+		else
+		{
+			String decider = settings.getSetting( "decider" );
+			switch( decider )
+			{
+				case "oldest":
+					best = bestlist.get( 0 );
+					break;
+				case "newest":
+					best = bestlist.get( bestlist.size() - 1 );
+					break;
+				case "closest":
+					best = bestlist.stream().min( Comparator.comparing( loc -> getDistance( loc ) ) ).get();
+					break;
+				case "farthest":
+					best = bestlist.stream().max( Comparator.comparing( loc -> getDistance( loc ) ) ).get();
+					break;
+				case "random":
+				default:
+					best = bestlist.get( rand.nextInt( bestlist.size() ) );
+					break;
+			}		
+		}
+		return best;
+	}
+	
+	private double getDistance( Location here )
+	{
+		int xd = Math.abs( here.getX() - start.getX() );
+		int yd = Math.abs( here.getY() - start.getY() );
+		boolean tiling = settings.getSetting( "tiling" );
+		if( tiling )
+		{
+			xd = Math.min( xd , image.getWidth() - xd );
+			yd = Math.min( yd , image.getHeight() - yd );
+		}
+		return Math.sqrt( ( xd * xd ) + ( yd * yd ) );
+	}
+	
 	private Colour getScore( Location loc )
 	{
 		Colour result = new Colour( 0 , 0 , 0 );
 		List<Color> neighbourcolours = new ArrayList<>();
-		for( Location nb : loc.getNeighbours() )
+		int comparison_distance = settings.<Long>getSetting( "comparison_distance" ).intValue();
+		
+		for( Location nb : getNeighbours( loc , comparison_distance ) )
 		{
-			Location neighbour = validate( nb );
-			int colour = image.getRGB( neighbour.X , neighbour.Y );
-			if( colour != -16777216 ) //not background black
+			Location neighbour = normalize( nb );
+			int colour = image.getRGB( neighbour.getX() , neighbour.getY() );
+			//if( colour != -16777216 ) //not background black
+			if( colour != backgroundcolour )
 			{
 				neighbourcolours.add( new Color( colour ) );
 			}
 		}
 		if( !neighbourcolours.isEmpty() )
 		{
-			double rtotal = 0.0;
-			double gtotal = 0.0;
-			double btotal = 0.0;
-			for( Color colour : neighbourcolours )
+			String score_type = settings.getSetting( "score_type" );
+			if( score_type.equals( "average" ) )
 			{
-				rtotal += colour.getRed();
-				gtotal += colour.getGreen();
-				btotal += colour.getBlue();
+				double rtotal = 0.0;
+				double gtotal = 0.0;
+				double btotal = 0.0;
+				for( Color colour : neighbourcolours )
+				{
+					rtotal += colour.getRed();
+					gtotal += colour.getGreen();
+					btotal += colour.getBlue();
+				}
+				result = new Colour( (int)( rtotal / neighbourcolours.size() ) , (int)( gtotal / neighbourcolours.size() ) , (int)( btotal / neighbourcolours.size() ) );
 			}
-			result = new Colour( (int)( rtotal / neighbourcolours.size() ) , (int)( gtotal / neighbourcolours.size() ) , (int)( btotal / neighbourcolours.size() ) );
+			else if( score_type.equals( "minimum old" ) )
+			{
+				Colour min = new Colour( 255 , 255 , 255 );
+				for( Color colour : neighbourcolours )
+				{
+					Colour temp = new Colour( colour );
+					if( temp.compareTo( min ) < 0 )
+					{
+						min = temp;
+					}
+				}
+				result = min;
+			}
+			else if( score_type.equals( "minimum" ) )
+			{
+				int min_red = 255;
+				int min_blue = 255;
+				int min_green = 255;
+				for( Color colour : neighbourcolours )
+				{
+					if( colour.getRed() < min_red )
+					{
+						min_red = colour.getRed();
+					}
+					if( colour.getGreen() < min_green )
+					{
+						min_green = colour.getGreen();
+					}
+					if( colour.getBlue() < min_blue )
+					{
+						min_blue = colour.getBlue();
+					}
+				}
+				result = new Colour( min_red , min_green , min_blue );
+			}
 		}
 		return result;
 	}
 	
+	private List<Location> getNeighbours( Location center , int distance )
+	{
+		List<Location> list = new ArrayList<>();
+		if( distance > 0 )
+		{
+			for( int y = center.getY() - distance; y <= center.getY() + distance; y++ )
+			{
+				for( int x = center.getX() - distance; x <= center.getX() + distance; x++ )
+				{
+					if( x == center.getX() && y == center.getY() ) continue;
+					list.add( new Location( x , y ) );
+				}
+			}
+		}
+		return list;
+	}
+	
 	private void addNeighbours( Location loc )
 	{
-		for( Location location : loc.getNeighbours() )
+		boolean tiling = settings.getSetting( "tiling" );
+		for( Location location : getNeighbours( loc , 1 ) )
 		{
-			Location neighbour = validate( location );
-			if( image.getRGB( neighbour.X , neighbour.Y ) == -16777216 ) //background black
+			Location neighbour = location;
+			if( tiling )
 			{
-				addEntry( neighbour );
+				neighbour = normalize( location );
+			}
+			if( tiling || isInside( neighbour ) )
+			{
+				//if( image.getRGB( neighbour.getX() , neighbour.getY() ) == -16777216 ) //background black
+				int neighbourcolour = image.getRGB( neighbour.getX() , neighbour.getY() );				
+				if( neighbourcolour == backgroundcolour )
+				{
+					addEntry( neighbour );
+				}
 			}
 		}
 	}
@@ -119,10 +305,15 @@ public class ImageGeneratorCloud implements ImageGenerator
 		}
 	}
 	
-	private Location validate( Location loc )
+	private boolean isInside( Location loc )
+	{
+		return loc.getX() >= 0 && loc.getY() >= 0 && loc.getX() < image.getWidth() && loc.getY() < image.getHeight();
+	}
+	
+	private Location normalize( Location loc )
 	{
 		//check x
-		int newx = loc.X;
+		int newx = loc.getX();
 		if( newx < 0 )
 		{
 			newx += image.getWidth();
@@ -132,7 +323,7 @@ public class ImageGeneratorCloud implements ImageGenerator
 			newx -= image.getWidth();
 		}
 		//check y
-		int newy = loc.Y;
+		int newy = loc.getY();
 		if( newy < 0 )
 		{
 			newy += image.getHeight();

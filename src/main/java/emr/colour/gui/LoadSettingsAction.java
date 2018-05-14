@@ -29,8 +29,9 @@ class LoadSettingsAction extends AbstractAction
 		jfc.setFileFilter( new CustomFilter( "settings" ) );
 		if( jfc.showOpenDialog( frame ) == JFileChooser.APPROVE_OPTION )
 		{
-			String name = jfc.getSelectedFile().getName();
-			Message message = new IGMessage( IGMessageType.LOAD_SETTINGS , name );
+			String path = jfc.getSelectedFile().getPath();
+			
+			Message message = new IGMessage( IGMessageType.LOAD_SETTINGS , path );
 			new Thread( () -> talker.sendMessage( message ) ).start();
 		}
 	}

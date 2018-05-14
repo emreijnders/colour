@@ -4,15 +4,17 @@ import emr.colour.colourlist.Colour;
 import emr.colour.ImageSettings;
 import emr.stuff.Bounds;
 import emr.stuff.Bounded;
-import emr.stuff.Location;
+import emr.stuff.LocationDouble;
 import emr.stuff.Direction;
 import emr.stuff.QuadTree;
+import emr.stuff.RotatableRectangle;
 import java.util.Random;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.SortedSet;
-import java.util.TreeSet;
+import java.util.Collections;
+//import java.util.SortedSet;
+//import java.util.TreeSet;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.geom.Rectangle2D;
@@ -20,51 +22,108 @@ import java.awt.image.BufferedImage;
 
 public class ImageGeneratorBlocks implements ImageGenerator
 {
-	private BufferedImage image;
-	private int current_size;
-	private Bounds last_intersect;
-	private QuadTree<Bounds> tree;
+	private int current_width;
+	private int current_height;
+	private int max_size;
+	private RotatableRectangle last_intersect;
+	private QuadTree<RotatableRectangle> tree;
 	private Graphics2D g2;
 	private Random rand;
 	private Direction current_direction;
 	private int steps , max_steps;
 	private boolean turn;
 	private int colour_index;
+	private LocationDouble start;
+	private double factor;
+	private double divisor;
+	private BufferedImage image;
+	private ImageSettings settings;
 	private List<Colour> colours;
-	private Location start;
 	
-	@Override
-	public BufferedImage generateImage( BufferedImage image , List<Colour> colours , ImageSettings settings )
+	public ImageGeneratorBlocks( BufferedImage image , List<Colour> colours , ImageSettings settings )
 	{
-		//init
-		System.out.println("Image starting");
+		this.image = image;
+		this.settings = settings;
+		this.colours = colours;
 		this.image = image;
 		this.colours = colours;
 		long seed = settings.getSetting( "seed" );
 		rand = new Random( seed );
-		int number_of_blocks = settings.<Long>getSetting( "number_of_blocks" ).intValue();
-		int max_size = settings.<Long>getSetting( "max_size" ).intValue();
-		current_size = max_size;
+		int max_size = settings.<Long>getSetting( "max_size" ).intValue();		
+		current_width = max_size;
+		current_height = max_size;
 		colour_index = 0;
 		g2 = image.createGraphics();
-		tree = new QuadTree<>( new Bounds( new Location( 0 , 0 ) , image.getWidth() , image.getHeight() ) );
+		tree = new QuadTree<>( new Bounds( new LocationDouble( 0 , 0 ) , image.getWidth() , image.getHeight() ) );
+		divisor = settings.getSetting( "divisor" );
+		factor = Math.PI / divisor;		
+	}
+	
+	
+	@Override
+	public BufferedImage generateImage()
+	{
+		//init
+		System.out.println("Image starting");
+		int number_of_blocks = settings.<Long>getSetting( "number_of_blocks" ).intValue();
+		boolean shuffle_blocks = settings.getSetting( "shuffle_blocks" );
+		boolean sort_blocks = settings.getSetting( "sort_blocks" );
+		boolean blocks_ascending = settings.getSetting( "blocks_ascending" );
 		
 		//generate blocks
-		SortedSet<Block> blocklist = new TreeSet<>( new BlockComparator( false ) ); //we want to go from large to small
-		for( int i = 0; i < number_of_blocks && current_size > 0; i++ )
+		List<RotatableRectangle> blocklist = new ArrayList<>();
+		for( int i = 0; i < number_of_blocks; i++ )
 		{
 			blocklist.add( createRandomBlock() );
 		}
+		if( shuffle_blocks )
+		{
+			Collections.shuffle( blocklist , rand );
+		}
+		if( sort_blocks )
+		{
+			Collections.sort( blocklist , new BlockComparator( blocks_ascending ) );
+		}
 		
 		//place blocks
-		int x = (int) ( image.getWidth() / 2.0 ) + ( rand.nextInt( max_size * 2 ) - max_size );
-		int y = (int) ( image.getHeight() / 2.0 ) + ( rand.nextInt( max_size * 2 ) - max_size );
-		start = new Location( x , y );		
-		for( Block block : blocklist )
+		int index = 1;
+		int miss_counter = 0;
+		for( RotatableRectangle block : blocklist )
 		{
-			if( !placeBlock( block ) )
+			System.out.println( "placing block " + index + " of " + blocklist.size() );
+			index++;
+			double x = ( image.getWidth() / 2.0 ) + ( rand.nextInt( max_size * 2 ) - max_size );
+			double y = ( image.getHeight() / 2.0 ) + ( rand.nextInt( max_size * 2 ) - max_size );
+			start = new LocationDouble( x , y );		
+		
+			int counter = 0;
+			boolean placed = false;
+			while( !placed && counter < divisor )
+			{				
+				if( placeBlock( block ) )
+				{
+					placed = true;
+					System.out.println( "block " + index + " placed" );
+				}
+				else
+				{
+					block.setAngle( block.getAngle() + factor );				
+					counter++;
+					System.out.println( "counter: " + counter );
+				}
+			}
+			if( !placed )
 			{
-				placeBlock( new Block( block.height , block.width ) );
+				miss_counter++;
+				System.out.println( "block " + index + " not placed" );
+			}
+			else
+			{
+				miss_counter = 0;
+			}
+			if( miss_counter > 9 )
+			{
+				break;
 			}
 		}
 		
@@ -73,7 +132,7 @@ public class ImageGeneratorBlocks implements ImageGenerator
 		return image;
 	}
 	
-	private boolean placeBlock( Block block )
+	private boolean placeBlock( RotatableRectangle block )
 	{
 		current_direction = Direction.N;
 		steps = 0;
@@ -81,71 +140,56 @@ public class ImageGeneratorBlocks implements ImageGenerator
 		turn = false;
 		
 		boolean placed = true;
-		/*
-		int w2 = (int) ( image.getWidth() / 2.0 );
-		int rl = w2 - max_size;
-		int rr = w2 + max_size;
-		int sx = rand.nextInt( rr - rl ) + rl;
-		int h2 = (int) ( image.getHeight() / 2.0 );
-		int rt = h2 - max_size;
-		int rb = h2 + max_size;
-		int sy = rand.nextInt( rb - rt ) + rt;		
-		Location start = new Location( sx , sy );		
-		*/
-		Bounds newblock = getNewBounds( start , block );
 		
-		while( !canPlace( newblock ) )
+		block.setLocationDouble( start );
+		while( !canPlace( block ) )
 		{
-			Location next = getNext( newblock.getTopLeft() , block );
-			if( next.equals( newblock.getTopLeft() ) )
+			if( !getNext( block ) )
 			{
 				placed = false;
 				break;
 			}
-			newblock = getNewBounds( next , block );
 		}
 		
 		if( placed )
 		{
-			drawBlock( newblock );
-			tree.insert( newblock );			
+			drawBlock( block );
+			tree.insert( block );
 		}
 		last_intersect = null;
 		
 		return placed;
 	}
 	
-	private Bounds getNewBounds( Location loc , Block block )
-	{
-		return new Bounds( loc , block.width , block.height );
-	}
-	
-	private void drawBlock( Bounds block )
+	private void drawBlock( RotatableRectangle block )
 	{
 		g2.setColor( new Color( colours.get( colour_index ).getIntValue() ) );
 		colour_index = ( colour_index + 1 ) % colours.size();
-		g2.fill( block );
+		g2.fill( block.getPath() );
 	}
 	
-	private boolean canPlace( Bounds block )
+	private boolean canPlace( RotatableRectangle block )
 	{
 		boolean answer = true;
-		if( isOutside( block.getTopLeft() , new Block( (int) block.getWidth() , (int) block.getHeight() ) ) )
+		if( isOutside( block ) )
 		{
 			answer = false;
 		}
 		else
 		{
-			if( last_intersect != null && last_intersect.intersects( (Bounded) block ) )
+			if( last_intersect != null && last_intersect.intersects( block ) )
 			{
 				answer = false;
 			}
 			else
 			{
-				for( Bounds bounds : tree.retrieve( block ) )
+				Rectangle2D br = block.getBoundingRectangle();
+				Bounds bounds = new Bounds( new LocationDouble( br.getX() , br.getY() ) , br.getWidth() , br.getHeight() );
+				for( RotatableRectangle rect : tree.retrieve( bounds ) )
 				{
-					if( bounds.intersects( (Bounded) block ) )
+					if( rect.intersects( block ) )
 					{
+						last_intersect = rect;
 						answer = false;
 						break;
 					}
@@ -155,17 +199,20 @@ public class ImageGeneratorBlocks implements ImageGenerator
 		return answer;
 	}
 	
-	private Location getNext( Location loc , Block block )
+	private boolean getNext( RotatableRectangle block )
 	{
-		Location answer = loc;
+		//System.out.println( "getNext start" );
+		LocationDouble answer = block.getCenter();
+		boolean result = true;
 		do
 		{
 			if( max_steps > Math.max( image.getWidth() , image.getHeight() ) * 2 )
 			{
-				answer = loc;
+				result = false;
 				break;
 			}
-			answer = answer.getNewLocation( current_direction );
+			//System.out.println( "getNext " + max_steps + " " + ( max_steps <= Math.max( image.getWidth() , image.getHeight() ) * 2 ) + " " + ( Math.max( image.getWidth() , image.getHeight() ) * 2 ) );
+			answer = answer.getNextLocation( current_direction );
 			steps++;
 			if( steps >= max_steps )
 			{
@@ -177,36 +224,46 @@ public class ImageGeneratorBlocks implements ImageGenerator
 				turn = !turn;
 				current_direction = current_direction.getNextClockwiseDirection().getNextClockwiseDirection();			
 			}
+			block.setLocationDouble( answer );
 		}
-		while( isOutside( answer , block ) );
-		return answer;
+		while( isOutside( block ) );
+		//System.out.println( "getNext end" );
+		return result;
 	}
 	
-	private boolean isOutside( Location loc , Block block )
+	private boolean isOutside( RotatableRectangle block )
 	{
 		boolean answer = false;
-		if( loc.X < 0 
-			|| loc.X >= ( image.getWidth() - block.width ) 
-			|| loc.Y < 0 
-			|| loc.Y >= ( image.getHeight() - block.height ) )
+		LocationDouble center = block.getCenter();
+		Rectangle2D br = block.getBoundingRectangle();
+		if( br.getX() < 0 
+			|| br.getX() >= ( image.getWidth() - br.getWidth() ) 
+			|| br.getY() < 0 
+			|| br.getY() >= ( image.getHeight() - br.getHeight() ) )
 		{
 			answer = true;
 		}
 		return answer;
 	}
 	
-	private Block createRandomBlock()
+	private RotatableRectangle createRandomBlock()
 	{
-		int w = rand.nextInt( current_size ) + 1;
-		int h = rand.nextInt( current_size ) + 1;
-		if( w > current_size * 0.9 || h > current_size * 0.9 )
+		int w = rand.nextInt( current_width ) + 1;
+		int h = rand.nextInt( current_width ) + 1;		
+		double angle = rand.nextInt( (int) divisor ) * factor;
+		if( w > current_width * 0.9 && current_width > 1 )
 		{
-			current_size--;
+			current_width--;			
 		}
-		return new Block( w , h );
+		if( h > current_height * 0.9 && current_height > 1 )
+		{
+			current_height--;
+		}
+		return new RotatableRectangle( new LocationDouble( 0 , 0 ) , w , h , angle );
 	}
 }
 
+/*
 class Block
 {
 	public final int width , height;
@@ -223,8 +280,9 @@ class Block
 		return "[" + width + "," + height + "]";
 	}
 }
+*/
 
-class BlockComparator implements Comparator<Block>
+class BlockComparator implements Comparator<RotatableRectangle>
 {
 	private final boolean ascending;
 	
@@ -234,11 +292,11 @@ class BlockComparator implements Comparator<Block>
 	}
 	
 	@Override
-	public int compare( Block first , Block second )
+	public int compare( RotatableRectangle first , RotatableRectangle second )
 	{
-		int volume1 = first.width * first.height;
-		int volume2 = second.width * second.height;
-		int answer = volume1 - volume2;
+		double volume1 = first.getWidth() * first.getHeight();
+		double volume2 = second.getWidth() * second.getHeight();
+		int answer = (int) ( volume1 - volume2 );
 		if( !ascending )
 		{
 			answer = -answer;

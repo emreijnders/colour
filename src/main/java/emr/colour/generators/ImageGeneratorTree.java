@@ -14,8 +14,19 @@ import java.awt.BasicStroke;
 
 public class ImageGeneratorTree implements ImageGenerator
 {
+	private BufferedImage image;
+	private ImageSettings settings;
+	private List<Colour> colours;
+	
+	public ImageGeneratorTree( BufferedImage image , List<Colour> colours , ImageSettings settings )
+	{
+		this.image = image;
+		this.settings = settings;
+		this.colours = colours;
+	}
+	
 	@Override
-	public BufferedImage generateImage( BufferedImage image , List<Colour> colours , ImageSettings settings )
+	public BufferedImage generateImage()
 	{
 		int depth = settings.<Long>getSetting( "max_depth" ).intValue();
 		int starting_length = settings.<Long>getSetting( "starting_length" ).intValue();
@@ -59,7 +70,7 @@ public class ImageGeneratorTree implements ImageGenerator
 		{
 			g2.setStroke( new BasicStroke( (float) branch.width , BasicStroke.CAP_ROUND , BasicStroke.JOIN_MITER ) );
 			g2.setColor( new Color( colours.get( branch.depth ).getIntValue() ) );
-			g2.draw( new Line2D.Double( branch.start.X , branch.start.Y , branch.end.X , branch.end.Y ) );			
+			g2.draw( new Line2D.Double( branch.start.getX() , branch.start.getY() , branch.end.getX() , branch.end.getY() ) );			
 		}
 	}
 	
@@ -104,8 +115,8 @@ class Branch
 	{
 		int w = (int) Math.round( Math.sin( Math.toRadians( angle ) ) * length );
 		int h = (int) Math.round( Math.cos( Math.toRadians( angle ) ) * length );
-		int x = start.X + w;
-		int y = start.Y - h;
+		int x = (int) ( start.getX() + w );
+		int y = (int) ( start.getY() - h );
 		return new Location( x , y );
 	}
 }
