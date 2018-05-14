@@ -7,7 +7,7 @@
 500
 
 @seed
-12345
+1234
 
 @sorting_comparator
 RED,GREEN,BLUE
@@ -37,7 +37,7 @@ true
 true
 
 @score_comparator
-SATURATION
+RED
 
 @comparison_distance
 1

@@ -173,9 +173,8 @@ public class ImageGeneratorCloud implements ImageGenerator
 		List<Color> neighbourcolours = new ArrayList<>();
 		int comparison_distance = settings.<Long>getSetting( "comparison_distance" ).intValue();
 		
-		for( Location nb : getNeighbours( loc , comparison_distance ) )
+		for( Location neighbour : getNeighbours( loc , comparison_distance ) )
 		{
-			Location neighbour = normalize( nb );
 			int colour = image.getRGB( neighbour.getX() , neighbour.getY() );
 			//if( colour != -16777216 ) //not background black
 			if( colour != backgroundcolour )
@@ -240,6 +239,7 @@ public class ImageGeneratorCloud implements ImageGenerator
 	
 	private List<Location> getNeighbours( Location center , int distance )
 	{
+		boolean tiling = settings.getSetting( "tiling" );
 		List<Location> list = new ArrayList<>();
 		if( distance > 0 )
 		{
@@ -248,7 +248,15 @@ public class ImageGeneratorCloud implements ImageGenerator
 				for( int x = center.getX() - distance; x <= center.getX() + distance; x++ )
 				{
 					if( x == center.getX() && y == center.getY() ) continue;
-					list.add( new Location( x , y ) );
+					Location neighbour = new Location( x , y );
+					if( tiling )
+					{
+						neighbour = normalize( neighbour );
+					}
+					if( tiling || isInside( neighbour ) )
+					{
+						list.add( neighbour );
+					}
 				}
 			}
 		}
@@ -257,22 +265,13 @@ public class ImageGeneratorCloud implements ImageGenerator
 	
 	private void addNeighbours( Location loc )
 	{
-		boolean tiling = settings.getSetting( "tiling" );
-		for( Location location : getNeighbours( loc , 1 ) )
+		for( Location neighbour : getNeighbours( loc , 1 ) )
 		{
-			Location neighbour = location;
-			if( tiling )
+			//if( image.getRGB( neighbour.getX() , neighbour.getY() ) == -16777216 ) //background black
+			int neighbourcolour = image.getRGB( neighbour.getX() , neighbour.getY() );				
+			if( neighbourcolour == backgroundcolour )
 			{
-				neighbour = normalize( location );
-			}
-			if( tiling || isInside( neighbour ) )
-			{
-				//if( image.getRGB( neighbour.getX() , neighbour.getY() ) == -16777216 ) //background black
-				int neighbourcolour = image.getRGB( neighbour.getX() , neighbour.getY() );				
-				if( neighbourcolour == backgroundcolour )
-				{
-					addEntry( neighbour );
-				}
+				addEntry( neighbour );
 			}
 		}
 	}
