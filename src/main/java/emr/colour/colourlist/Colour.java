@@ -119,11 +119,17 @@ public class Colour implements Comparable<Colour>
 	public boolean equals( Object o )
 	{
 		boolean answer = false;
-		if( this == o ) answer  = true;
-		else if( o != null && o instanceof Colour )
+		if( o != null )
 		{
-			Colour other = (Colour) o;
-			if( getIntValue() == other.getIntValue() ) answer = true;
+			if( this == o )
+			{
+				answer  = true;
+			}
+			else if( o instanceof Colour )
+			{
+				Colour other = (Colour) o;
+				if( getIntValue() == other.getIntValue() ) answer = true;
+			}
 		}
 		return answer;
 	}

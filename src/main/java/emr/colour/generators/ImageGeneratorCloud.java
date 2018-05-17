@@ -16,6 +16,8 @@ import java.awt.Color;
 import java.util.Map.Entry;
 import java.util.Map;
 import emr.colour.comparators.CustomComparator;
+import java.util.Set;
+import java.util.HashSet;
 
 public class ImageGeneratorCloud implements ImageGenerator
 {
@@ -31,10 +33,14 @@ public class ImageGeneratorCloud implements ImageGenerator
 	public ImageGeneratorCloud( BufferedImage image , List<Colour> colours , ImageSettings settings )
 	{
 		locationmap = new HashMap<>();
-		boolean score_ascending = settings.getSetting( "score_ascending" );
-		String terms = settings.getSetting( "score_comparator" );
-		Comparator< Colour > comparator = new CustomComparator( score_ascending , terms );
-		scoremap = new TreeMap<>( comparator );
+		//boolean score_ascending = settings.getSetting( "score_ascending" );
+		//String terms = settings.getSetting( "score_comparator" );
+		//Comparator< Colour > comparator = new CustomComparator( score_ascending , terms );
+		//scoremap = new TreeMap<>( comparator );
+		//no no no
+		//the treemap needs the natural ordering or it breaks!
+		//!!!!!
+		scoremap = new TreeMap<>();
 		long seed = settings.getSetting( "seed" );
 		rand = new Random( seed );
 		this.image = image;
@@ -51,10 +57,17 @@ public class ImageGeneratorCloud implements ImageGenerator
 		int y = rand.nextInt( image.getHeight() );
 		start = new Location( x , y );
 		addEntry( start );
+		
+		//        Set<Location> allbests = new HashSet<>();
 		while( !colours.isEmpty() && !locationmap.isEmpty() )
 		{
 			//pop a colour
-			Colour colour = colours.remove(0);
+			Colour colour = colours.remove( 0 );
+			if( colour.getIntValue() == backgroundcolour )
+			{
+				colour = colours.remove( 0 );
+			}
+			//     System.out.println("colour:" + colour);
 			//find the best fit from the wavefront
 			boolean precise = settings.getSetting( "precise" );
 			Location best;
@@ -66,12 +79,26 @@ public class ImageGeneratorCloud implements ImageGenerator
 			{
 				best = getBestRough( colour );
 			}
+			/*
+			if( allbests.add(best) == false )
+			{
+				System.out.println("something wrong:" + best);
+				Colour mark1 = locationmap.get( best );
+				System.out.println( "marker 1:" + mark1 );
+				System.out.println( "marker 2:" + scoremap.get( mark1 ) );
+				System.out.println( new Color( image.getRGB( best.getX() , best.getY() ) ) );
+				System.exit(0);
+			}
+			*/
+			//      System.out.println("############## best:" + best);
 			//remove best location from wavefront
 			removeEntry( best );
 			//place the colour
 			image.setRGB( best.getX() , best.getY() , colour.getIntValue() );
 			//add the neighbours of the newly placed colour to the wavefront
-			addNeighbours( best );			
+			addNeighbours( best );
+			//     System.out.println( "afterbest" + locationmap );
+			//     System.out.println( scoremap );
 		}
 		return image;
 	}
@@ -176,7 +203,6 @@ public class ImageGeneratorCloud implements ImageGenerator
 		for( Location neighbour : getNeighbours( loc , comparison_distance ) )
 		{
 			int colour = image.getRGB( neighbour.getX() , neighbour.getY() );
-			//if( colour != -16777216 ) //not background black
 			if( colour != backgroundcolour )
 			{
 				neighbourcolours.add( new Color( colour ) );
@@ -267,7 +293,6 @@ public class ImageGeneratorCloud implements ImageGenerator
 	{
 		for( Location neighbour : getNeighbours( loc , 1 ) )
 		{
-			//if( image.getRGB( neighbour.getX() , neighbour.getY() ) == -16777216 ) //background black
 			int neighbourcolour = image.getRGB( neighbour.getX() , neighbour.getY() );				
 			if( neighbourcolour == backgroundcolour )
 			{
@@ -278,12 +303,31 @@ public class ImageGeneratorCloud implements ImageGenerator
 	
 	private void addEntry( Location loc )
 	{
+		/*System.out.println("adding:" + loc);
+		if( loc.equals( new Location(26,32)) ) 
+		{
+			System.out.println("halt");
+			System.out.println( locationmap );
+			System.out.println( scoremap );
+			System.exit(0);
+		}
+		*/
 		removeEntry( loc );
 		Colour score = getScore( loc );
+		/*     System.out.println("score:" + score);
+		if(locationmap.containsKey(loc)) 
+		{
+			System.out.println("locationmap already contains:" + loc);
+			System.exit(0);
+		}
+		*/
 		locationmap.put( loc , score );
 		List<Location> list = scoremap.get( score );
+		//       System.out.println(loc+","+score+":"+list);
+		//       System.out.println("#######marker:" + scoremap );
 		if( list == null )
 		{
+			//        System.out.println("list null");
 			list = new ArrayList<>();
 			scoremap.put( score , list );			
 		}
@@ -292,11 +336,14 @@ public class ImageGeneratorCloud implements ImageGenerator
 	
 	private void removeEntry( Location loc )
 	{
+		//      System.out.println("removing:" + loc);
 		Colour oldscore = locationmap.remove( loc );
+		//        System.out.println("oldscore:" + oldscore);
 		if( oldscore != null )
 		{
 			List<Location> list = scoremap.get( oldscore );
-			list.remove( loc );
+			boolean temp = list.remove( loc );
+			//        System.out.println("true?:"+temp);
 			if( list.isEmpty() )
 			{
 				scoremap.remove( oldscore );
