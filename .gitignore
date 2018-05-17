@@ -1,7 +1,8 @@
 #images
 *.png
-.settings
-.ccl
+*.settings
+*.ccl
+*.number
 images/
 target/
 
