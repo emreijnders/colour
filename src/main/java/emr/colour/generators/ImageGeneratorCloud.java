@@ -29,6 +29,9 @@ public class ImageGeneratorCloud implements ImageGenerator
 	private ImageSettings settings;
 	private List<Colour> colours;
 	private int backgroundcolour;
+	private boolean quarters;
+	private int width;
+	private int height;
 	
 	public ImageGeneratorCloud( BufferedImage image , List<Colour> colours , ImageSettings settings )
 	{
@@ -47,14 +50,29 @@ public class ImageGeneratorCloud implements ImageGenerator
 		this.settings = settings;
 		this.colours = new LinkedList<Colour>( colours );
 		backgroundcolour = Color.decode( settings.getSetting( "background_colour" ) ).getRGB();
+		quarters = settings.getSetting( "quarters" );
+		if( !isEven( image.getWidth() ) || !isEven( image.getHeight() ) )
+		{
+			System.err.println( "image size not even, required for quarters setting" );
+			System.err.println( "width: " + image.getWidth() + " height: " + image.getHeight() );
+			System.exit(0);
+		}
+		width = image.getWidth();
+		height = image.getHeight();
+		if( quarters )
+		{
+			width = width / 2;
+			height = height / 2;
+		}
+		
 	}
 	
 	@Override
 	public BufferedImage generateImage()
 	{
 		//generation
-		int x = rand.nextInt( image.getWidth() );
-		int y = rand.nextInt( image.getHeight() );
+		int x = rand.nextInt( width );
+		int y = rand.nextInt( height );
 		start = new Location( x , y );
 		addEntry( start );
 		
@@ -62,11 +80,7 @@ public class ImageGeneratorCloud implements ImageGenerator
 		while( !colours.isEmpty() && !locationmap.isEmpty() )
 		{
 			//pop a colour
-			Colour colour = colours.remove( 0 );
-			if( colour.getIntValue() == backgroundcolour )
-			{
-				colour = colours.remove( 0 );
-			}
+			Colour colour = getNextColour();
 			//     System.out.println("colour:" + colour);
 			//find the best fit from the wavefront
 			boolean precise = settings.getSetting( "precise" );
@@ -94,13 +108,63 @@ public class ImageGeneratorCloud implements ImageGenerator
 			//remove best location from wavefront
 			removeEntry( best );
 			//place the colour
-			image.setRGB( best.getX() , best.getY() , colour.getIntValue() );
+			drawBest( best , colour );
+			
 			//add the neighbours of the newly placed colour to the wavefront
 			addNeighbours( best );
 			//     System.out.println( "afterbest" + locationmap );
 			//     System.out.println( scoremap );
 		}
+		System.out.println( image.getRGB(x,y) );
+		System.out.println( image.getRGB(image.getWidth() - x - 1,y) );
+		System.out.println( image.getRGB(x, image.getHeight() - y - 1 ) );
+		System.out.println( image.getRGB(image.getWidth() - x - 1,image.getHeight() - y - 1) );
 		return image;
+	}
+	
+	private Colour getNextColour()
+	{
+		Colour colour = colours.remove( 0 );
+		if( colour.getIntValue() == backgroundcolour )
+		{
+			colour = colours.remove( 0 );
+		}
+		return colour;
+	}
+	
+	private void drawBest( Location best , Colour colour )
+	{
+		image.setRGB( best.getX() , best.getY() , colour.getIntValue() );
+		boolean no_reuse = settings.getSetting( "no_reuse" );
+		if( quarters )
+		{
+			int secondx = image.getWidth() - best.getX() - 1;
+			int secondy = image.getHeight() - best.getY() - 1;
+			if( no_reuse )
+			{
+				//System.out.println("mark 1" + colour);
+				colour = getNextColour();
+				//System.out.println("mark 2" + colour);
+			}
+			image.setRGB( best.getX() , secondy , colour.getIntValue() );
+			if( no_reuse )
+			{
+				colour = getNextColour();
+				//System.out.println("mark 3" + colour);
+			}
+			image.setRGB( secondx , best.getY() , colour.getIntValue() );
+			if( no_reuse )
+			{
+				colour = getNextColour();
+				//System.out.println("mark 4" + colour);
+			}
+			image.setRGB( secondx , secondy , colour.getIntValue() );
+		}
+	}
+	
+	private boolean isEven( int number )
+	{
+		return Math.abs( number ) % 2 == 0;
 	}
 	
 	private Location getBestPrecise( Colour colour )
@@ -353,7 +417,7 @@ public class ImageGeneratorCloud implements ImageGenerator
 	
 	private boolean isInside( Location loc )
 	{
-		return loc.getX() >= 0 && loc.getY() >= 0 && loc.getX() < image.getWidth() && loc.getY() < image.getHeight();
+		return loc.getX() >= 0 && loc.getY() >= 0 && loc.getX() < width && loc.getY() < height;
 	}
 	
 	private Location normalize( Location loc )
@@ -362,21 +426,21 @@ public class ImageGeneratorCloud implements ImageGenerator
 		int newx = loc.getX();
 		if( newx < 0 )
 		{
-			newx += image.getWidth();
+			newx += width;
 		}
-		else if( newx >= image.getWidth() )
+		else if( newx >= width )
 		{
-			newx -= image.getWidth();
+			newx -= width;
 		}
 		//check y
 		int newy = loc.getY();
 		if( newy < 0 )
 		{
-			newy += image.getHeight();
+			newy += height;
 		}
-		else if( newy >= image.getHeight() )
+		else if( newy >= height )
 		{
-			newy -= image.getHeight();
+			newy -= height;
 		}
 		return new Location( newx , newy );
 	}
